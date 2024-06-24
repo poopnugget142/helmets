@@ -1,0 +1,18 @@
+[package]
+name = "common"
+version = "0.1.0"
+edition = "2021"
+
+# not quite sure what this does
+[features]
+server = []
+client = []
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = { workspace = true }
+serde = { workspace = true }
+lightyear = { workspace = true }
+leafwing-input-manager = { workspace = true }
+bevy_xpbd_2d = { workspace = true }
