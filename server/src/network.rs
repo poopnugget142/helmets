@@ -1,10 +1,15 @@
 // Network to Clients
 
-use bevy::{ecs::entity, prelude::*};
-use common::{character::{CharacterBundle, PlayerOwner}, input::PlayerActions, player::{PlayerBundle, PlayerId}, *};
+use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
-use lightyear::{prelude::{server::ServerCommands, *}, server::{config::{NetcodeConfig, ServerConfig}, events::ConnectEvent, replication::{ReplicationConfig, ServerReplicationSet}}, shared::events::components::ComponentInsertEvent};
-
+use bevy_xpbd_2d::prelude::*;
+use lightyear::prelude::server::*;
+use character::{shared_movement_behaviour, PhysicsBundle};
+use common::{input::PlayerActions, player::PlayerId, *};
+use lightyear::channel::builder::InputChannel;
+use lightyear::inputs::leafwing::InputMessage;
+use lightyear::{prelude::*, transport::config::SharedIoConfig};
+use lightyear::prelude::client::{Confirmed, Predicted};
 use std::net::{Ipv4Addr, SocketAddr};
 
 pub struct NetworkPlugin;
@@ -16,33 +21,33 @@ impl Plugin for NetworkPlugin {
 
         let netcode_config = NetcodeConfig {
             protocol_id: PROTOCOL_ID,
-            private_key: Some(KEY.into()),
+            private_key: KEY.into(),
             ..default()
         };
 
         let net_config = server::NetConfig::Netcode {
             config: netcode_config,
-            io: IoConfig::from_transport(TransportConfig::UdpSocket(server_addr)),
-        };
-
-        let replication = ReplicationConfig {
-            enable_send: true,
-            ..default()
+            io: SharedIoConfig::from_transport(server::ServerTransport::UdpSocket(server_addr))
         };
 
         let server_config = ServerConfig {
             shared: shared_config(Mode::Separate),
             // Here we only provide a single net config, but you can provide multiple!
             net: vec![net_config],
-            replication,
             ..default()
         };
 
-        let server_plugin = server::ServerPlugin::new(server_config);
+        let server_plugin = server::ServerPlugins::new(server_config);
 
         app.add_plugins(server_plugin);
         app.add_systems(Startup, init);
-        // app.add_systems(Update, movement);
+        app.add_systems(Update, movement);
+        // app.add_systems(
+        //     PreUpdate,
+        //     // this system will replicate the inputs of a client to other clients
+        //     // so that a client can predict other clients
+        //     replicate_inputs.after(MainSet::EmitEvents),
+        // );
         app.add_systems(PreUpdate, replicate_players.in_set(ServerReplicationSet::ClientReplication));
     }
 }
@@ -51,59 +56,84 @@ fn init(mut commands: Commands) {
     commands.start_server();
 }
 
+/// Read client inputs and move players
+/// NOTE: this system can now be run in both client/server!
 pub(crate) fn movement(
+    tick_manager: Res<TickManager>,
     mut action_query: Query<
         (
+            Entity,
+            &Position,
+            &mut LinearVelocity,
             &ActionState<PlayerActions>,
         ),
+        // if we run in host-server mode, we don't want to apply this system to the local client's entities
+        // because they are already moved by the client plugin
+        (Without<Confirmed>, Without<Predicted>),
     >,
 ) {
-    for action in action_query.iter_mut() {
-        dbg!(action.0.get_pressed());
+    for (entity, position, velocity, action) in action_query.iter_mut() {
+        if !action.get_pressed().is_empty() {
+            // NOTE: be careful to directly pass Mut<PlayerPosition>
+            // getting a mutable reference triggers change detection, unless you use `as_deref_mut()`
+            shared_movement_behaviour(velocity, action);
+            trace!(?entity, tick = ?tick_manager.tick(), ?position, actions = ?action.get_pressed(), "applying movement to player");
+        }
+    }
+}
+
+fn replicate_inputs(
+    mut connection: ResMut<ConnectionManager>,
+    mut input_events: EventReader<MessageEvent<InputMessage<PlayerActions>>>,
+) {
+    for event in input_events.read() {
+        let inputs = event.message();
+        let client_id = event.context();
+
+        // Optional: do some validation on the inputs to check that there's no cheating
+
+        // rebroadcast the input to other clients
+        connection
+            .send_message_to_target::<InputChannel, _>(
+                inputs,
+                NetworkTarget::AllExceptSingle(*client_id),
+            )
+            .unwrap()
     }
 }
 
 // Replicate the pre-spawned entities back to the client
-fn replicate_players(
-    // mut player_spawn_reader: EventReader<ComponentInsertEvent<PlayerId>>,
-    q_player_id: Query<(&PlayerId, Entity), Added<PlayerId>>,
+pub(crate) fn replicate_players(
     mut commands: Commands,
+    query: Query<(Entity, &Replicated), (Added<Replicated>, With<PlayerId>)>,
 ) {
-    for (player_id, entity) in q_player_id.iter() {
-        let client_id = player_id.0;
+    for (entity, replicated) in query.iter() {
+        let client_id = replicated.client_id();
+        info!("received player spawn event from client {client_id:?}");
 
-        // for all cursors we have received, add a Replicate component so that we can start replicating it
+        // for all player entities we have received, add a Replicate component so that we can start replicating it
         // to other clients
         if let Some(mut e) = commands.get_entity(entity) {
-            let mut replicate = Replicate {
-                // we want to replicate back to the original client, since they are using a pre-predicted entity
-                replication_target: NetworkTarget::All,
+            // we want to replicate back to the original client, since they are using a pre-predicted entity
+            let mut sync_target = SyncTarget::default();
+
+            sync_target.prediction = NetworkTarget::All;
+            let replicate = Replicate {
+                sync: sync_target,
+                controlled_by: ControlledBy {
+                    target: NetworkTarget::Single(client_id),
+                },
+                // make sure that all entities that are predicted are part of the same replication group
+                group: REPLICATION_GROUP,
                 ..default()
             };
-            // We don't want to replicate the ActionState to the original client, since they are updating it with
-            // their own inputs (if you replicate it to the original client, it will be added on the Confirmed entity,
-            // which will keep syncing it to the Predicted entity because the ActionState gets updated every tick)!
-            replicate.add_target::<ActionState<PlayerActions>>(NetworkTarget::AllExceptSingle(
-                client_id,
-            ));
-            // if we receive a pre-predicted entity, only send the prepredicted component back
-            // to the original client
-            replicate.add_target::<PrePredicted>(NetworkTarget::Single(client_id));
-
-            let predict_all = true;
-            if predict_all {
-                replicate.prediction_target = NetworkTarget::All;
-                // // if we predict other players, we need to replicate their actions to all clients other than the original one
-                // // (the original client will apply the actions locally)
-                // replicate.disable_replicate_once::<ActionState<PlayerActions>>();
-            } else {
-                // we want the other clients to apply interpolation for the player
-                replicate.interpolation_target = NetworkTarget::AllExceptSingle(client_id);
-            }
             e.insert((
                 replicate,
+                // if we receive a pre-predicted entity, only send the prepredicted component back
+                // to the original client
+                OverrideTargetComponent::<PrePredicted>::new(NetworkTarget::Single(client_id)),
                 // not all physics components are replicated over the network, so add them on the server as well
-                // PhysicsBundle::player(),
+                PhysicsBundle::default(),
             ));
         }
     }

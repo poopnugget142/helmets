@@ -239,6 +239,9 @@ name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "as-raw-xcb-connection"
@@ -375,6 +378,12 @@ name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
+
+[[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bevy"
@@ -759,7 +768,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21ecf404295055deb7fe037495891bc135ca10d46bc5b6c55f9ab7b7ebc61d31"
 dependencies = [
- "base64",
+ "base64 0.21.7",
  "bevy_animation",
  "bevy_app",
  "bevy_asset",
@@ -1249,6 +1258,7 @@ dependencies = [
  "nalgebra",
  "parry2d",
  "parry2d-f64",
+ "serde",
 ]
 
 [[package]]
@@ -3211,15 +3221,16 @@ dependencies = [
 
 [[package]]
 name = "lightyear"
-version = "0.14.1"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "538d3b88c86e17cc27c0bd4ce215ccaf38421e9455117a1e833c8694ff47453b"
+checksum = "c6d2f731276594feef4fff46d8b84fd36974ce707d268f8c2fba4ecef48f861e"
 dependencies = [
  "anyhow",
  "async-channel",
  "async-compat",
- "base64",
+ "base64 0.22.1",
  "bevy",
+ "bevy_xpbd_2d",
  "bitcode_lightyear_patch",
  "byteorder",
  "bytes",
@@ -3247,6 +3258,7 @@ dependencies = [
  "self_cell",
  "serde",
  "thiserror",
+ "tokio",
  "tracing",
  "tracing-log 0.2.0",
  "tracing-subscriber",
@@ -3254,9 +3266,9 @@ dependencies = [
 
 [[package]]
 name = "lightyear_macros"
-version = "0.14.1"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "512004b222dcc0b325ee9adf5e875acaa628e1933beffe4d3b59dae8ddeda405"
+checksum = "fe1fa37db59d4effd2a1eec189261d3ddda9a8bec832f12c2f5810aa0317b4ba"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3452,6 +3464,7 @@ dependencies = [
  "num-complex",
  "num-rational",
  "num-traits",
+ "serde",
  "simba",
  "typenum",
 ]
@@ -3603,6 +3616,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23c6602fda94a57c990fe0df199a035d83576b496aa29f4e634a8ac6004e68a6"
 dependencies = [
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -3901,6 +3915,7 @@ dependencies = [
  "num-traits",
  "rayon",
  "rustc-hash",
+ "serde",
  "simba",
  "slab",
  "smallvec",
@@ -3923,6 +3938,7 @@ dependencies = [
  "num-traits",
  "rayon",
  "rustc-hash",
+ "serde",
  "simba",
  "slab",
  "smallvec",
@@ -4369,7 +4385,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b91f7eff05f748767f183df4320a63d6936e9c6107d97c9e6bdd9784f4289c94"
 dependencies = [
- "base64",
+ "base64 0.21.7",
  "bitflags 2.5.0",
  "serde",
  "serde_derive",
@@ -4523,6 +4539,7 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_xpbd_2d",
  "bincode",
  "common",
  "leafwing-input-manager",

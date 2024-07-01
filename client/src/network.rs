@@ -1,9 +1,11 @@
 // connects entities to one another using lightyear
 
 use bevy::prelude::*;
+use bevy_xpbd_2d::prelude::*;
+use client::{ClientConnection, Confirmed, Interpolated, InterpolationSet, Predicted, PredictionSet};
 use common::{character::*, input::PlayerActions, player::PlayerId, *};
 use leafwing_input_manager::{action_state::ActionState, input_map::InputMap, InputManagerBundle};
-use lightyear::{client::{events::ConnectEvent, replication::ReplicationConfig}, prelude::{client::ClientCommands, *}};
+use lightyear::{client::events::ConnectEvent, prelude::{client::ClientCommands, *}, transport::config::SharedIoConfig};
 
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr}, time::SystemTime
@@ -41,7 +43,7 @@ impl Plugin for NetworkPlugin {
     
         let client_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0);
     
-        let io_config = IoConfig::from_transport(TransportConfig::UdpSocket(client_addr));
+        let io_config = SharedIoConfig::from_transport(client::ClientTransport::UdpSocket(client_addr));
     
         let auth = client::Authentication::Manual {
             // server's IP address
@@ -59,28 +61,43 @@ impl Plugin for NetworkPlugin {
             io: io_config,
             config: client::NetcodeConfig::default(),
         };
-
-        let replication = ReplicationConfig {
-            enable_send: true,
-            ..default()
-        };
     
         let client_config = client::ClientConfig {
             shared: shared_config(Mode::Separate),
             net: net_config,
-            replication,
             ..default()
         };
     
-        let client_plugin = client::ClientPlugin::new(client_config);
+        let client_plugin = client::ClientPlugins::new(client_config);
     
         app.add_plugins(client_plugin);
         app.insert_resource(LocalClientId(client_id));
         app.add_systems(Update, handle_connection);
         app.add_systems(Startup, init);
+        // draw after interpolation is done
+        app.add_systems(
+            PostUpdate,
+            draw_elements
+                .after(InterpolationSet::Interpolate)
+                .after(PredictionSet::VisualCorrection),
+        );
         // app.init_state::<NetworkState>();
         // app.add_systems(Update, (check_connection)
         //     .run_if(in_state(NetworkState::Connecting).or_else(in_state(NetworkState::Connected)) ));
+    }
+}
+
+pub(crate) fn draw_elements(
+    mut gizmos: Gizmos,
+    players: Query<(&Position), (Without<Confirmed>, With<Character>)>,
+) {
+    for (position) in &players {
+        gizmos.rect_2d(
+            Vec2::new(position.x, position.y),
+            Rotation::ZERO.as_radians(), //REPLACE WITH REAL ROTATION
+            Vec2::ONE * 40.0,
+            Color::rgb(100.0, 0.0, 0.0)
+        );
     }
 }
 

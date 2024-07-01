@@ -14,6 +14,6 @@ pub(super) fn register(app: &mut App) {
     app.register_type::<PlayerId>();
 
     app.register_component::<PlayerId>(ChannelDirection::Bidirectional)
-        .add_prediction::<PlayerId>(ComponentSyncMode::Once)
-        .add_interpolation::<PlayerId>(ComponentSyncMode::Once);
+        .add_prediction(ComponentSyncMode::Once)
+        .add_interpolation(ComponentSyncMode::Once);
 }

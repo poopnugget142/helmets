@@ -83,39 +83,6 @@ fn player_movement(
     }
 }
 
-// fn wait_for_local_character_spawn (
-//     confirmed: Query<(Entity, &PlayerId), Added<Predicted>>,
-//     local_client_id: Res<LocalClientId>,
-//     mut commands: Commands,
-// ) {
-//     for (entity, player_id) in confirmed.iter() {
-//         let client_id = player_id.0;
-
-//         if client_id.to_string() != local_client_id.0.to_string() {
-//             print!("returned");
-//             return;
-//         }
-
-//         println!("CHARACTER ADDED");
-
-//         commands
-//             .entity(entity)
-//             .insert((
-//                 LocalCharacter,
-//                 InputManagerBundle::<PlayerActions> {
-//                     action_state: ActionState::default(),
-//                     input_map: InputMap::new([
-//                         (PlayerActions::Up, KeyCode::KeyW),
-//                         (PlayerActions::Down, KeyCode::KeyS),
-//                         (PlayerActions::Left, KeyCode::KeyA),
-//                         (PlayerActions::Right, KeyCode::KeyD),
-//                     ]),
-//                 }
-//             ));
-        
-//     }
-// }
-
 // fn create_character (
 //     mut commands: Commands,
 //     mut character_add_reader: EventReader<CreateCharacter>,
