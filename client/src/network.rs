@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
+use lightyear::prelude::client::*;
 use client::{ClientConnection, Confirmed, Interpolated, InterpolationSet, Predicted, PredictionSet};
 use common::{character::*, input::PlayerActions, player::PlayerId, *};
 use leafwing_input_manager::{action_state::ActionState, input_map::InputMap, InputManagerBundle};
@@ -72,7 +73,7 @@ impl Plugin for NetworkPlugin {
     
         app.add_plugins(client_plugin);
         app.insert_resource(LocalClientId(client_id));
-        app.add_systems(Update, handle_connection);
+        // app.add_systems(Update, handle_connection);
         app.add_systems(Startup, init);
         // draw after interpolation is done
         app.add_systems(
@@ -81,6 +82,7 @@ impl Plugin for NetworkPlugin {
                 .after(InterpolationSet::Interpolate)
                 .after(PredictionSet::VisualCorrection),
         );
+        app.add_systems(PreUpdate, replicate_players);
         // app.init_state::<NetworkState>();
         // app.add_systems(Update, (check_connection)
         //     .run_if(in_state(NetworkState::Connecting).or_else(in_state(NetworkState::Connected)) ));
@@ -101,44 +103,44 @@ pub(crate) fn draw_elements(
     }
 }
 
-fn handle_connection(
-    mut commands: Commands,
-    mut connection_event: EventReader<ConnectEvent>,
-    asset_server: Res<AssetServer>,
-) {
-    for event in connection_event.read() {
-        println!("CONNECTED");
+// fn handle_connection(
+//     mut commands: Commands,
+//     mut connection_event: EventReader<ConnectEvent>,
+//     asset_server: Res<AssetServer>,
+// ) {
+//     for event in connection_event.read() {
+//         println!("CONNECTED");
 
-        let client_id = event.client_id();
+//         let client_id = event.client_id();
 
-        let mut character = commands.spawn((
-            PlayerId(client_id),
-            CharacterBundle::default(),
-            InputManagerBundle::<PlayerActions> {
-                action_state: ActionState::default(),
-                input_map: InputMap::new([
-                    (PlayerActions::Up, KeyCode::KeyW),
-                    (PlayerActions::Down, KeyCode::KeyS),
-                    (PlayerActions::Left, KeyCode::KeyA),
-                    (PlayerActions::Right, KeyCode::KeyD),
-                ]),
-            },
-        ));
+//         let mut character = commands.spawn((
+//             PlayerId(client_id),
+//             CharacterBundle::default(),
+//             InputManagerBundle::<PlayerActions> {
+//                 action_state: ActionState::default(),
+//                 input_map: InputMap::new([
+//                     (PlayerActions::Up, KeyCode::KeyW),
+//                     (PlayerActions::Down, KeyCode::KeyS),
+//                     (PlayerActions::Left, KeyCode::KeyA),
+//                     (PlayerActions::Right, KeyCode::KeyD),
+//                 ]),
+//             },
+//         ));
 
-        character.despawn_descendants();
-            character.clear_children();
+//         character.despawn_descendants();
+//             character.clear_children();
 
-            character.with_children(|parent|{
-                parent.spawn(SpriteBundle {
-                    texture: asset_server.load("images/uniforms/french.png"),
-                    transform: Transform {
-                        ..default()
-                    },
-                    ..default()
-                });
-            });
-    }
-}
+//             character.with_children(|parent|{
+//                 parent.spawn(SpriteBundle {
+//                     texture: asset_server.load("images/uniforms/french.png"),
+//                     transform: Transform {
+//                         ..default()
+//                     },
+//                     ..default()
+//                 });
+//             });
+//     }
+// }
 
 fn init(
     mut commands: Commands,
@@ -154,6 +156,34 @@ fn init(
             ..default()
         },
     ));
+}
+
+pub(crate) fn replicate_players(
+    mut commands: Commands,
+    query: Query<Entity, (Added<Predicted>, With<PlayerId>)>,
+) {
+    for entity in query.iter() {
+        println!("HI");
+
+        // for all player entities we have received, add a Replicate component so that we can start replicating it
+        // to other clients
+        if let Some(mut e) = commands.get_entity(entity) {
+            // we want to replicate back to the original client, since they are using a pre-predicted entity
+            e.insert((
+                // not all physics components are replicated over the network, so add them on the server as well
+                PhysicsBundle::default(),
+                InputManagerBundle::<PlayerActions> {
+                    action_state: ActionState::default(),
+                    input_map: InputMap::new([
+                        (PlayerActions::Up, KeyCode::KeyW),
+                        (PlayerActions::Down, KeyCode::KeyS),
+                        (PlayerActions::Left, KeyCode::KeyA),
+                        (PlayerActions::Right, KeyCode::KeyD),
+                    ]),
+                },
+            ));
+        }
+    }
 }
 
 // fn receive_message_system(

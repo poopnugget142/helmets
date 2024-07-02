@@ -12,8 +12,7 @@ use super::*;
 #[derive(Bundle)]
 pub struct CharacterBundle {
     character: Character,
-    replicate: client::Replicate,
-    pre_predicted: PrePredicted,
+    // pre_predicted: PrePredicted,
     position: Position,
     parent_sprite: ParentSprite,
     sprite_bundle: SpriteBundle,
@@ -25,11 +24,7 @@ impl Default for CharacterBundle {
         let position = Vec2::new(0.0, 0.0);
         Self {
             character: Character,
-            replicate: client::Replicate {
-                group: REPLICATION_GROUP,
-                ..default()
-            },
-            pre_predicted: PrePredicted::default(),
+            // pre_predicted: PrePredicted::default(),
             position: Position(position),
             parent_sprite: ParentSprite,
             sprite_bundle: SpriteBundle::default(),

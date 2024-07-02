@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use bevy_xpbd_2d::prelude::*;
 use lightyear::prelude::server::*;
-use character::{shared_movement_behaviour, PhysicsBundle};
+use character::{shared_movement_behaviour, CharacterBundle, PhysicsBundle};
 use common::{input::PlayerActions, player::PlayerId, *};
 use lightyear::channel::builder::InputChannel;
 use lightyear::inputs::leafwing::InputMessage;
@@ -42,18 +42,42 @@ impl Plugin for NetworkPlugin {
         app.add_plugins(server_plugin);
         app.add_systems(Startup, init);
         app.add_systems(Update, movement);
-        // app.add_systems(
-        //     PreUpdate,
-        //     // this system will replicate the inputs of a client to other clients
-        //     // so that a client can predict other clients
-        //     replicate_inputs.after(MainSet::EmitEvents),
-        // );
-        app.add_systems(PreUpdate, replicate_players.in_set(ServerReplicationSet::ClientReplication));
+        // app.add_systems(PreUpdate, replicate_players.in_set(ServerReplicationSet::ClientReplication));
+        app.add_systems(Update, handle_connection);
     }
 }
 
 fn init(mut commands: Commands) {
     commands.start_server();
+}
+
+fn handle_connection(
+    mut commands: Commands,
+    mut connection_event: EventReader<ConnectEvent>,
+) {
+    for event in connection_event.read() {
+        let client_id = event.client_id;
+
+        let mut sync_target = SyncTarget::default();
+
+        // Can be set to all to predict every single client
+        sync_target.prediction = NetworkTarget::Single(client_id);
+
+        let mut character = commands.spawn((
+            PlayerId(client_id),
+            CharacterBundle::default(),
+            server::Replicate {
+                group: REPLICATION_GROUP,
+                controlled_by: ControlledBy {
+                    target: NetworkTarget::Single(client_id),
+                },
+                sync: sync_target,
+                ..default()
+            },
+        ));
+
+        println!("Created guy")
+    }
 }
 
 /// Read client inputs and move players
@@ -82,62 +106,42 @@ pub(crate) fn movement(
     }
 }
 
-fn replicate_inputs(
-    mut connection: ResMut<ConnectionManager>,
-    mut input_events: EventReader<MessageEvent<InputMessage<PlayerActions>>>,
-) {
-    for event in input_events.read() {
-        let inputs = event.message();
-        let client_id = event.context();
-
-        // Optional: do some validation on the inputs to check that there's no cheating
-
-        // rebroadcast the input to other clients
-        connection
-            .send_message_to_target::<InputChannel, _>(
-                inputs,
-                NetworkTarget::AllExceptSingle(*client_id),
-            )
-            .unwrap()
-    }
-}
-
 // Replicate the pre-spawned entities back to the client
-pub(crate) fn replicate_players(
-    mut commands: Commands,
-    query: Query<(Entity, &Replicated), (Added<Replicated>, With<PlayerId>)>,
-) {
-    for (entity, replicated) in query.iter() {
-        let client_id = replicated.client_id();
-        info!("received player spawn event from client {client_id:?}");
+// pub(crate) fn replicate_players(
+//     mut commands: Commands,
+//     query: Query<(Entity, &Replicated), (Added<Replicated>, With<PlayerId>)>,
+// ) {
+//     for (entity, replicated) in query.iter() {
+//         let client_id = replicated.client_id();
+//         info!("received player spawn event from client {client_id:?}");
 
-        // for all player entities we have received, add a Replicate component so that we can start replicating it
-        // to other clients
-        if let Some(mut e) = commands.get_entity(entity) {
-            // we want to replicate back to the original client, since they are using a pre-predicted entity
-            let mut sync_target = SyncTarget::default();
+//         // for all player entities we have received, add a Replicate component so that we can start replicating it
+//         // to other clients
+//         if let Some(mut e) = commands.get_entity(entity) {
+//             // we want to replicate back to the original client, since they are using a pre-predicted entity
+//             let mut sync_target = SyncTarget::default();
 
-            sync_target.prediction = NetworkTarget::All;
-            let replicate = Replicate {
-                sync: sync_target,
-                controlled_by: ControlledBy {
-                    target: NetworkTarget::Single(client_id),
-                },
-                // make sure that all entities that are predicted are part of the same replication group
-                group: REPLICATION_GROUP,
-                ..default()
-            };
-            e.insert((
-                replicate,
-                // if we receive a pre-predicted entity, only send the prepredicted component back
-                // to the original client
-                OverrideTargetComponent::<PrePredicted>::new(NetworkTarget::Single(client_id)),
-                // not all physics components are replicated over the network, so add them on the server as well
-                PhysicsBundle::default(),
-            ));
-        }
-    }
-}
+//             sync_target.prediction = NetworkTarget::All;
+//             let replicate = Replicate {
+//                 sync: sync_target,
+//                 controlled_by: ControlledBy {
+//                     target: NetworkTarget::Single(client_id),
+//                 },
+//                 // make sure that all entities that are predicted are part of the same replication group
+//                 group: REPLICATION_GROUP,
+//                 ..default()
+//             };
+//             e.insert((
+//                 replicate,
+//                 // if we receive a pre-predicted entity, only send the prepredicted component back
+//                 // to the original client
+//                 OverrideTargetComponent::<PrePredicted>::new(NetworkTarget::Single(client_id)),
+//                 // not all physics components are replicated over the network, so add them on the server as well
+//                 PhysicsBundle::default(),
+//             ));
+//         }
+//     }
+// }
 
 
 // fn handle_connections(

@@ -14,6 +14,8 @@ tokio = { workspace = true }
 lightyear = { workspace = true}
 leafwing-input-manager = { workspace = true }
 bevy_xpbd_2d = { workspace = true }
+bevy_egui = { workspace = true }
+bevy-inspector-egui = { workspace = true }
 
 #networking
 public-ip = { workspace = true }
