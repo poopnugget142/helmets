@@ -2,11 +2,10 @@
 
 use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
-use lightyear::prelude::client::*;
-use client::{ClientConnection, Confirmed, Interpolated, InterpolationSet, Predicted, PredictionSet};
+use lightyear::{prelude::{client::ClientCommands, *}, transport::config::SharedIoConfig};
+use client::*;
 use common::{character::*, input::PlayerActions, player::PlayerId, *};
 use leafwing_input_manager::{action_state::ActionState, input_map::InputMap, InputManagerBundle};
-use lightyear::{client::events::ConnectEvent, prelude::{client::ClientCommands, *}, transport::config::SharedIoConfig};
 
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr}, time::SystemTime
@@ -73,7 +72,6 @@ impl Plugin for NetworkPlugin {
     
         app.add_plugins(client_plugin);
         app.insert_resource(LocalClientId(client_id));
-        // app.add_systems(Update, handle_connection);
         app.add_systems(Startup, init);
         // draw after interpolation is done
         app.add_systems(
@@ -89,11 +87,11 @@ impl Plugin for NetworkPlugin {
     }
 }
 
-pub(crate) fn draw_elements(
+fn draw_elements(
     mut gizmos: Gizmos,
-    players: Query<(&Position), (Without<Confirmed>, With<Character>)>,
+    players: Query<&Position, (Without<Confirmed>, With<Character>)>,
 ) {
-    for (position) in &players {
+    for position in &players {
         gizmos.rect_2d(
             Vec2::new(position.x, position.y),
             Rotation::ZERO.as_radians(), //REPLACE WITH REAL ROTATION
@@ -102,45 +100,6 @@ pub(crate) fn draw_elements(
         );
     }
 }
-
-// fn handle_connection(
-//     mut commands: Commands,
-//     mut connection_event: EventReader<ConnectEvent>,
-//     asset_server: Res<AssetServer>,
-// ) {
-//     for event in connection_event.read() {
-//         println!("CONNECTED");
-
-//         let client_id = event.client_id();
-
-//         let mut character = commands.spawn((
-//             PlayerId(client_id),
-//             CharacterBundle::default(),
-//             InputManagerBundle::<PlayerActions> {
-//                 action_state: ActionState::default(),
-//                 input_map: InputMap::new([
-//                     (PlayerActions::Up, KeyCode::KeyW),
-//                     (PlayerActions::Down, KeyCode::KeyS),
-//                     (PlayerActions::Left, KeyCode::KeyA),
-//                     (PlayerActions::Right, KeyCode::KeyD),
-//                 ]),
-//             },
-//         ));
-
-//         character.despawn_descendants();
-//             character.clear_children();
-
-//             character.with_children(|parent|{
-//                 parent.spawn(SpriteBundle {
-//                     texture: asset_server.load("images/uniforms/french.png"),
-//                     transform: Transform {
-//                         ..default()
-//                     },
-//                     ..default()
-//                 });
-//             });
-//     }
-// }
 
 fn init(
     mut commands: Commands,
@@ -158,13 +117,11 @@ fn init(
     ));
 }
 
-pub(crate) fn replicate_players(
+fn replicate_players(
     mut commands: Commands,
     query: Query<Entity, (Added<Predicted>, With<PlayerId>)>,
 ) {
     for entity in query.iter() {
-        println!("HI");
-
         // for all player entities we have received, add a Replicate component so that we can start replicating it
         // to other clients
         if let Some(mut e) = commands.get_entity(entity) {
@@ -172,6 +129,12 @@ pub(crate) fn replicate_players(
             e.insert((
                 // not all physics components are replicated over the network, so add them on the server as well
                 PhysicsBundle::default(),
+                client::Replicate {
+                    // NOTE (important): all entities that are being predicted need to be part of the same replication-group
+                    //  so that all their updates are sent as a single message and are consistent (on the same tick)
+                    group: REPLICATION_GROUP,
+                    ..default()
+                },
                 InputManagerBundle::<PlayerActions> {
                     action_state: ActionState::default(),
                     input_map: InputMap::new([
@@ -185,47 +148,6 @@ pub(crate) fn replicate_players(
         }
     }
 }
-
-// fn receive_message_system(
-//     mut client: ResMut<RenetClient>,
-//     mut new_chat_message: EventWriter<ChatMessage>,
-//     mut create_player: EventWriter<CreatePlayer>,
-//     mut new_character_transform: EventWriter<UpdateCharacterTransform>,
-// ) {
-//     while let Some(ser_message) = client.receive_message(DefaultChannel::ReliableOrdered) {
-//         // Handle received message
-//         let server_message: ServerMessage = bincode::deserialize(&ser_message).unwrap();
-//         match server_message {
-//             ServerMessage::Pong => {
-//                 println!("Pong");
-//             }
-//             ServerMessage::BroadcastChat(client_id, text) => {
-//                 new_chat_message.send(ChatMessage {
-//                     client_id: Some(client_id),
-//                     text,
-//                 });
-//             }
-//             ServerMessage::PlayerData(player_data) => {
-//                 create_player.send(CreatePlayer {
-//                     player_data,
-//                     local_player: false,
-//                 });
-//             }
-//             ServerMessage::PlayerDisconnect(client_id, reason) => {
-//                 new_chat_message.send(ChatMessage {
-//                     client_id: None,
-//                     text: format!("Client {client_id} disconnected: {reason}"),
-//                 });
-//             }
-//             ServerMessage::Movement(character_transform, client_id) => {
-//                 new_character_transform.send(UpdateCharacterTransform{
-//                     transform: character_transform,
-//                     client_id,
-//                 });
-//             }
-//         }
-//     }   
-// }
 
 // fn connect_window(
 //     mut contexts: EguiContexts,

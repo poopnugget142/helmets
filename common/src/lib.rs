@@ -14,6 +14,10 @@ pub const KEY: [u8; 32]  = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 pub const REPLICATION_GROUP: ReplicationGroup = ReplicationGroup::new_id(1);
 pub const FIXED_TIMESTEP_HZ: f64 = 64.0;
 
+pub mod player;
+pub mod character;
+pub mod input;
+
 pub fn shared_config(mode: Mode) -> SharedConfig {
     SharedConfig {
         // How often the client will send packets to the server (by default it is every frame).
@@ -31,9 +35,13 @@ pub fn shared_config(mode: Mode) -> SharedConfig {
     }
 }
 
-pub mod player;
-pub mod character;
-pub mod input;
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum FixedSet {
+    // main fixed update systems (handle inputs)
+    Main,
+    // apply physics steps
+    Physics,
+}
 
 #[derive(Channel)]
 pub struct Channel1;
@@ -51,6 +59,21 @@ pub fn register(app: &mut App) {
     app.add_plugins(PhysicsPlugins::new(FixedUpdate))
         .insert_resource(Time::new_with(Physics::fixed_once_hz(FIXED_TIMESTEP_HZ)))
         .insert_resource(Gravity(Vec2::ZERO));
+
+    app.configure_sets(
+        FixedUpdate,
+        (
+            // make sure that any physics simulation happens after the Main SystemSet
+            // (where we apply user's actions)
+            (
+                PhysicsSet::Prepare,
+                PhysicsSet::StepSimulation,
+                PhysicsSet::Sync,
+            )
+                .in_set(FixedSet::Physics),
+            (FixedSet::Main, FixedSet::Physics).chain(),
+        ),
+    );
 
     // channels
     app.add_channel::<Channel1>(ChannelSettings {
