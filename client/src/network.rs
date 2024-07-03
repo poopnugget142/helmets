@@ -1,7 +1,7 @@
 // connects entities to one another using lightyear
 
 use bevy::prelude::*;
-use bevy_xpbd_2d::prelude::*;
+use input::MovementStateActions;
 use lightyear::{prelude::{client::ClientCommands, *}, transport::config::SharedIoConfig};
 use client::*;
 use common::{character::*, input::PlayerActions, player::PlayerId, *};
@@ -10,6 +10,8 @@ use leafwing_input_manager::{action_state::ActionState, input_map::InputMap, Inp
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr}, time::SystemTime
 };
+
+use crate::character::LocalCharacter;
 
 // #[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
 // pub enum NetworkState {
@@ -73,31 +75,10 @@ impl Plugin for NetworkPlugin {
         app.add_plugins(client_plugin);
         app.insert_resource(LocalClientId(client_id));
         app.add_systems(Startup, init);
-        // draw after interpolation is done
-        app.add_systems(
-            PostUpdate,
-            draw_elements
-                .after(InterpolationSet::Interpolate)
-                .after(PredictionSet::VisualCorrection),
-        );
         app.add_systems(PreUpdate, replicate_players);
         // app.init_state::<NetworkState>();
         // app.add_systems(Update, (check_connection)
         //     .run_if(in_state(NetworkState::Connecting).or_else(in_state(NetworkState::Connected)) ));
-    }
-}
-
-fn draw_elements(
-    mut gizmos: Gizmos,
-    players: Query<&Position, (Without<Confirmed>, With<Character>)>,
-) {
-    for position in &players {
-        gizmos.rect_2d(
-            Vec2::new(position.x, position.y),
-            Rotation::ZERO.as_radians(), //REPLACE WITH REAL ROTATION
-            Vec2::ONE * 40.0,
-            Color::rgb(100.0, 0.0, 0.0)
-        );
     }
 }
 
@@ -129,11 +110,16 @@ fn replicate_players(
             e.insert((
                 // not all physics components are replicated over the network, so add them on the server as well
                 PhysicsBundle::default(),
-                client::Replicate {
-                    // NOTE (important): all entities that are being predicted need to be part of the same replication-group
-                    //  so that all their updates are sent as a single message and are consistent (on the same tick)
-                    group: REPLICATION_GROUP,
-                    ..default()
+                LocalCharacter,
+                ParentSprite,
+                SpriteBundle::default(),
+                InputManagerBundle::<MovementStateActions> {
+                    action_state: ActionState::default(),
+                    input_map: InputMap::new([
+                        (MovementStateActions::Run, KeyCode::ShiftLeft),
+                        (MovementStateActions::SlowWalk, KeyCode::AltLeft),
+                        (MovementStateActions::Crawl, KeyCode::KeyC),
+                    ]),
                 },
                 InputManagerBundle::<PlayerActions> {
                     action_state: ActionState::default(),

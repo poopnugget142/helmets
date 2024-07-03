@@ -1,5 +1,7 @@
 // Start server
 
+use bevy::diagnostic::DiagnosticsPlugin;
+use bevy::input::InputPlugin;
 use bevy::prelude::*;
 
 use bevy::log::LogPlugin;
@@ -15,8 +17,12 @@ fn main() {
     let mut app = App::new();
 
     // app.add_plugins((
+    //     InputPlugin,
     //     MinimalPlugins,
-    //     LogPlugin::default()
+    //     TransformPlugin,
+    //     LogPlugin::default(),
+    //     HierarchyPlugin,
+    //     DiagnosticsPlugin,
     // ));
     app.add_plugins((
         DefaultPlugins

@@ -1,10 +1,11 @@
 // Network to Clients
 
 use bevy::prelude::*;
+use input::MovementStateActions;
 use leafwing_input_manager::prelude::*;
 use bevy_xpbd_2d::prelude::*;
 use lightyear::prelude::server::*;
-use character::{shared_movement_behaviour, CharacterBundle};
+use character::{shared_movement_behaviour, shared_movement_state_behavior, CharacterBundle, MovementState};
 use common::{input::PlayerActions, player::PlayerId, *};
 use lightyear::{prelude::*, transport::config::SharedIoConfig};
 use std::net::{Ipv4Addr, SocketAddr};
@@ -38,7 +39,7 @@ impl Plugin for NetworkPlugin {
 
         app.add_plugins(server_plugin);
         app.add_systems(Startup, init);
-        app.add_systems(Update, movement);
+        app.add_systems(Update, (movement, movement_state));
         app.add_systems(Update, handle_connection);
     }
 }
@@ -62,6 +63,8 @@ fn handle_connection(
         commands.spawn((
             PlayerId(client_id),
             CharacterBundle::default(),
+            ActionState::<PlayerActions>::default(),
+            ActionState::<MovementStateActions>::default(),
             server::Replicate {
                 group: REPLICATION_GROUP,
                 controlled_by: ControlledBy {
@@ -71,8 +74,6 @@ fn handle_connection(
                 ..default()
             },
         ));
-
-        println!("Created guy")
     }
 }
 
@@ -87,9 +88,6 @@ fn movement(
             &mut LinearVelocity,
             &ActionState<PlayerActions>,
         ),
-        // if we run in host-server mode, we don't want to apply this system to the local client's entities
-        // because they are already moved by the client plugin
-        // (Without<Confirmed>, Without<Predicted>),
     >,
 ) {
     for (entity, position, velocity, action) in action_query.iter_mut() {
@@ -99,5 +97,18 @@ fn movement(
             shared_movement_behaviour(velocity, action);
             trace!(?entity, tick = ?tick_manager.tick(), ?position, actions = ?action.get_pressed(), "applying movement to player");
         }
+    }
+}
+
+fn movement_state(
+    mut action_query: Query<
+        (
+            &mut MovementState,
+            &ActionState<MovementStateActions>,
+        ),
+    >,
+) {
+    for (state, action) in action_query.iter_mut() {
+        shared_movement_state_behavior(state, action);
     }
 }

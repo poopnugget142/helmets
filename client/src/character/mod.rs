@@ -2,18 +2,19 @@
 
 use std::time::{Duration, Instant};
 
-use bevy::{prelude::*, time::common_conditions::on_real_timer, transform::commands};
+use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
-use common::{character::{shared_movement_behaviour, Character}, input::PlayerActions, player::PlayerId};
+use client::{Confirmed, Predicted};
+use common::*;
+use character::*;
+use input::*;
 use leafwing_input_manager::prelude::*;
-use lightyear::{client::{components::Confirmed, prediction::Predicted}, prelude::*};
-
-use crate::{network::{ConnectedSet, LocalClientId}, player::ControlledCharacter};
+use lightyear::prelude::*;
 
 // use self::movement::MovementState;
 
 pub mod movement;
-// pub mod appearance;
+pub mod appearance;
 
 #[derive(Component)]
 pub struct LocalCharacter;
@@ -46,41 +47,17 @@ fn is_local_character(
 pub struct LocalCharacterSet;
 
 pub(super) fn register(app: &mut App) {
-    // .configure_sets(Update, LocalCharacterSet.run_if(is_local_character))
+    app.configure_sets(Update, LocalCharacterSet.run_if(is_local_character));
 
     // .add_event::<CreateCharacter>()
 
     // .add_systems(Update, (create_character, delete_temp));
     //.add_systems(Update, (shoot).in_set(LocalCharacterSet));
 
-    app.add_systems(Update, player_movement);
+    // app.add_systems(Update, other_character_created.before(PhysicsSet::Prepare));
 
     movement::register(app);
-    // appearance::register(app);
-}
-
-fn player_movement(
-    tick_manager: Res<TickManager>,
-    mut velocity_query: Query<
-        (
-            Entity,
-            &PlayerId,
-            &Position,
-            &mut LinearVelocity,
-            &ActionState<PlayerActions>,
-        ),
-        With<Predicted>,
-    >,
-) {
-    for (entity, player_id, position, velocity, action_state) in velocity_query.iter_mut() {
-        if !action_state.get_pressed().is_empty() {
-            trace!(?entity, tick = ?tick_manager.tick(), ?position, actions = ?action_state.get_pressed(), "applying movement to predicted player");
-            // note that we also apply the input to the other predicted clients! even though
-            //  their inputs are only replicated with a delay!
-            // TODO: add input decay?
-            shared_movement_behaviour(velocity, action_state);
-        }
-    }
+    appearance::register(app);
 }
 
 // fn create_character (
