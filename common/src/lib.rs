@@ -5,7 +5,7 @@ use bevy_xpbd_2d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use std::{env, time::Duration};
+use std::time::Duration;
 use lightyear::{client::components::ComponentSyncMode, prelude::*};
 
 pub const PORT: u16 = 32105;

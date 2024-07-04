@@ -11,7 +11,7 @@ pub(super) fn register(app: &mut App) {
 fn update_appearance (
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    character_q: Query<(Entity, &MovementState), Or<(Changed<MovementState>, Added<Dead>)>>,
+    character_q: Query<(Entity, &MovementState), (Or<(Changed<MovementState>, Added<Dead>)>, Without<Confirmed>)>,
     dead_q: Query<&Dead>,
 ) {
     for (entity, movement_state) in character_q.iter() {

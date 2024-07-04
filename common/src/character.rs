@@ -109,7 +109,7 @@ pub(super) fn register(app: &mut App) {
     app.register_component::<AngularVelocity>(ChannelDirection::Bidirectional)
         .add_prediction(ComponentSyncMode::Full);
 
-    app.add_systems(Update, shared_turn_behavior);
+    app.add_systems(Update, (shared_movement_behaviour, shared_turn_behavior, shared_movement_state_behavior));
     
 
     // app.register_component::<PlayerOwner>(ChannelDirection::Bidirectional)
@@ -118,25 +118,31 @@ pub(super) fn register(app: &mut App) {
 }
 
 const MAX_VELOCITY: f32 = 200.0;
+const MOVE_SPEED: f32 = 5.0;
 
 pub fn shared_movement_behaviour(
-    mut velocity: Mut<LinearVelocity>,
-    action: &ActionState<PlayerActions>,
+    mut action_query: Query<
+        (
+            &mut LinearVelocity,
+            &ActionState<PlayerActions>,
+        ),
+    >,
 ) {
-    const MOVE_SPEED: f32 = 5.0;
-    if action.pressed(&PlayerActions::Up) {
-        velocity.y += MOVE_SPEED;
+    for (mut velocity, action,) in action_query.iter_mut() {
+        if action.pressed(&PlayerActions::Up) {
+            velocity.y += MOVE_SPEED;
+        }
+        if action.pressed(&PlayerActions::Down) {
+            velocity.y -= MOVE_SPEED;
+        }
+        if action.pressed(&PlayerActions::Left) {
+            velocity.x -= MOVE_SPEED;
+        }
+        if action.pressed(&PlayerActions::Right) {
+            velocity.x += MOVE_SPEED;
+        }
+        *velocity = LinearVelocity(velocity.clamp_length_max(MAX_VELOCITY));
     }
-    if action.pressed(&PlayerActions::Down) {
-        velocity.y -= MOVE_SPEED;
-    }
-    if action.pressed(&PlayerActions::Left) {
-        velocity.x -= MOVE_SPEED;
-    }
-    if action.pressed(&PlayerActions::Right) {
-        velocity.x += MOVE_SPEED;
-    }
-    *velocity = LinearVelocity(velocity.clamp_length_max(MAX_VELOCITY));
 }
 
 const TURN_SPEED: f32 = 7.5;
@@ -160,8 +166,6 @@ pub fn shared_turn_behavior(
             .map(|axis| axis.xy())
             .unwrap_or_default();
 
-        dbg!(&cursor_dir);
-
         if transform.rotation.is_nan() {
             angular_velocity.0 = TURN_SPEED;
             continue;
@@ -174,45 +178,52 @@ pub fn shared_turn_behavior(
         // Then we find the angle between current forward direction and desired one
         let cursor_angle = player_dir.angle_between(cursor_dir);
         
-        // And finally rotate player along z with that difference
+        // this avoids the jittering that occurs
         if cursor_angle.abs() < 0.01 {
             angular_velocity.0 = 0.0;
             continue;
         }
 
+        // Rotate the character
         angular_velocity.0 = (cursor_angle.cbrt() * TURN_SPEED).max(TURN_SPEED);
     }
 }
 
 pub fn shared_movement_state_behavior(
-    mut movement_state: Mut<MovementState>,
-    action: &ActionState<MovementStateActions>,
+    mut action_query: Query<
+        (
+            &mut MovementState,
+            &ActionState<MovementStateActions>,
+        ),
+    >,
 ){
-    if *movement_state == MovementState::Crawling {
-        if action.just_pressed(&MovementStateActions::Crawl) || action.just_pressed(&MovementStateActions::Run) {
-            *movement_state = MovementState::Walking;
-            return;
-        } else {
+    for (mut movement_state, action) in action_query.iter_mut() {
+        if *movement_state == MovementState::Crawling {
+            if action.just_pressed(&MovementStateActions::Crawl) || action.just_pressed(&MovementStateActions::Run) {
+                *movement_state = MovementState::Walking;
+                return;
+            } else {
+                return;
+            }
+        }
+    
+        if action.just_pressed(&MovementStateActions::Crawl) {
+            *movement_state = MovementState::Crawling;
             return;
         }
-    }
-
-    if action.just_pressed(&MovementStateActions::Crawl) {
-        *movement_state = MovementState::Crawling;
-        return;
-    }
-
-    if action.pressed(&MovementStateActions::Run) {
-        *movement_state = MovementState::Running;
-        return;
-    }
-
-    if action.pressed(&MovementStateActions::SlowWalk) {
-        *movement_state = MovementState::SlowWalk;
-        return;
-    }
-
-    if *movement_state != MovementState::Walking {
-        *movement_state = MovementState::Walking;
+    
+        if action.pressed(&MovementStateActions::Run) {
+            *movement_state = MovementState::Running;
+            return;
+        }
+    
+        if action.pressed(&MovementStateActions::SlowWalk) {
+            *movement_state = MovementState::SlowWalk;
+            return;
+        }
+    
+        if *movement_state != MovementState::Walking {
+            *movement_state = MovementState::Walking;
+        }
     }
 }

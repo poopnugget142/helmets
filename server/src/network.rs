@@ -39,7 +39,6 @@ impl Plugin for NetworkPlugin {
 
         app.add_plugins(server_plugin);
         app.add_systems(Startup, init);
-        app.add_systems(Update, (movement, movement_state));
         app.add_systems(Update, handle_connection);
     }
 }
@@ -74,41 +73,5 @@ fn handle_connection(
                 ..default()
             },
         ));
-    }
-}
-
-/// Read client inputs and move players
-/// NOTE: this system can now be run in both client/server!
-fn movement(
-    tick_manager: Res<TickManager>,
-    mut action_query: Query<
-        (
-            Entity,
-            &Position,
-            &mut LinearVelocity,
-            &ActionState<PlayerActions>,
-        ),
-    >,
-) {
-    for (entity, position, velocity, action) in action_query.iter_mut() {
-        if !action.get_pressed().is_empty() {
-            // NOTE: be careful to directly pass Mut<PlayerPosition>
-            // getting a mutable reference triggers change detection, unless you use `as_deref_mut()`
-            shared_movement_behaviour(velocity, action);
-            trace!(?entity, tick = ?tick_manager.tick(), ?position, actions = ?action.get_pressed(), "applying movement to player");
-        }
-    }
-}
-
-fn movement_state(
-    mut action_query: Query<
-        (
-            &mut MovementState,
-            &ActionState<MovementStateActions>,
-        ),
-    >,
-) {
-    for (state, action) in action_query.iter_mut() {
-        shared_movement_state_behavior(state, action);
     }
 }
