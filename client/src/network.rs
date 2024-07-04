@@ -1,7 +1,6 @@
 // connects entities to one another using lightyear
 
 use bevy::prelude::*;
-use input::MovementStateActions;
 use lightyear::{prelude::{client::ClientCommands, *}, transport::config::SharedIoConfig};
 use client::*;
 use common::{character::*, input::PlayerActions, player::PlayerId, *};
@@ -107,28 +106,28 @@ fn replicate_players(
         // to other clients
         if let Some(mut e) = commands.get_entity(entity) {
             // we want to replicate back to the original client, since they are using a pre-predicted entity
+
+            let mut input_map = InputMap::new([
+                (PlayerActions::Up, KeyCode::KeyW),
+                (PlayerActions::Down, KeyCode::KeyS),
+                (PlayerActions::Left, KeyCode::KeyA),
+                (PlayerActions::Right, KeyCode::KeyD),
+                (PlayerActions::Run, KeyCode::ShiftLeft),
+                (PlayerActions::SlowWalk, KeyCode::AltLeft),
+                (PlayerActions::Crawl, KeyCode::KeyC),
+            ]);
+
+            input_map.insert(PlayerActions::Shoot, MouseButton::Left);
+
             e.insert((
                 // not all physics components are replicated over the network, so add them on the server as well
                 PhysicsBundle::default(),
                 LocalCharacter,
                 ParentSprite,
                 SpriteBundle::default(),
-                InputManagerBundle::<MovementStateActions> {
-                    action_state: ActionState::default(),
-                    input_map: InputMap::new([
-                        (MovementStateActions::Run, KeyCode::ShiftLeft),
-                        (MovementStateActions::SlowWalk, KeyCode::AltLeft),
-                        (MovementStateActions::Crawl, KeyCode::KeyC),
-                    ]),
-                },
                 InputManagerBundle::<PlayerActions> {
                     action_state: ActionState::default(),
-                    input_map: InputMap::new([
-                        (PlayerActions::Up, KeyCode::KeyW),
-                        (PlayerActions::Down, KeyCode::KeyS),
-                        (PlayerActions::Left, KeyCode::KeyA),
-                        (PlayerActions::Right, KeyCode::KeyD),
-                    ]),
+                    input_map,
                 },
             ));
         }

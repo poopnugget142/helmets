@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy_xpbd_2d::prelude::*;
 use client::Predicted;
-use input::MovementStateActions;
 use lightyear::prelude::*;
 use lightyear::utils::bevy_xpbd_2d::*;
 
@@ -67,7 +66,7 @@ impl Default for PhysicsBundle {
         Self {
             velocity: LinearVelocity::default(),
             angular_velocity: AngularVelocity::default(),
-            collider: Collider::rectangle(40.0, 40.0),
+            collider: Collider::circle(40.0),
             rigid_body: RigidBody::Dynamic,
             damping: LinearDamping(5.0),
             angular_damping: AngularDamping(5.0)
@@ -101,7 +100,7 @@ pub(super) fn register(app: &mut App) {
         .add_prediction(ComponentSyncMode::Once);
 
     app.register_component::<MovementState>(ChannelDirection::Bidirectional)
-        .add_prediction(ComponentSyncMode::Full);
+        .add_prediction(ComponentSyncMode::Simple);
 
     app.register_component::<LinearVelocity>(ChannelDirection::Bidirectional)
         .add_prediction(ComponentSyncMode::Full);
@@ -126,6 +125,7 @@ pub fn shared_movement_behaviour(
             &mut LinearVelocity,
             &ActionState<PlayerActions>,
         ),
+        Or<(With<Predicted>, With<ReplicationTarget>)>,
     >,
 ) {
     for (mut velocity, action,) in action_query.iter_mut() {
@@ -193,13 +193,14 @@ pub fn shared_movement_state_behavior(
     mut action_query: Query<
         (
             &mut MovementState,
-            &ActionState<MovementStateActions>,
+            &ActionState<PlayerActions>,
         ),
+        Or<(With<Predicted>, With<ReplicationTarget>)>,
     >,
 ){
     for (mut movement_state, action) in action_query.iter_mut() {
         if *movement_state == MovementState::Crawling {
-            if action.just_pressed(&MovementStateActions::Crawl) || action.just_pressed(&MovementStateActions::Run) {
+            if action.just_pressed(&PlayerActions::Crawl) || action.just_pressed(&PlayerActions::Run) {
                 *movement_state = MovementState::Walking;
                 return;
             } else {
@@ -207,17 +208,17 @@ pub fn shared_movement_state_behavior(
             }
         }
     
-        if action.just_pressed(&MovementStateActions::Crawl) {
+        if action.just_pressed(&PlayerActions::Crawl) {
             *movement_state = MovementState::Crawling;
             return;
         }
     
-        if action.pressed(&MovementStateActions::Run) {
+        if action.pressed(&PlayerActions::Run) {
             *movement_state = MovementState::Running;
             return;
         }
     
-        if action.pressed(&MovementStateActions::SlowWalk) {
+        if action.pressed(&PlayerActions::SlowWalk) {
             *movement_state = MovementState::SlowWalk;
             return;
         }

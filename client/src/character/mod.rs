@@ -3,8 +3,7 @@
 use std::time::{Duration, Instant};
 
 use bevy::prelude::*;
-use bevy_xpbd_2d::prelude::*;
-use client::{Confirmed, Predicted};
+use client::Confirmed;
 use common::*;
 use character::*;
 use input::*;
@@ -52,7 +51,7 @@ pub(super) fn register(app: &mut App) {
     // .add_event::<CreateCharacter>()
 
     // .add_systems(Update, (create_character, delete_temp));
-    //.add_systems(Update, (shoot).in_set(LocalCharacterSet));
+    app.add_systems(Update, (shoot).in_set(LocalCharacterSet));
 
     // app.add_systems(Update, other_character_created.before(PhysicsSet::Prepare));
 
@@ -107,74 +106,80 @@ pub(super) fn register(app: &mut App) {
 //     }
 // }
 
-// fn shoot(
-//     mut commands: Commands,
-//     camera: Query<(&Camera, &GlobalTransform)>,
-//     mouse: Res<ButtonInput<MouseButton>>,
-//     asset_server: Res<AssetServer>,
-//     q_character: Query<(&Transform, Entity), With<LocalCharacter>>,
-//     q_window: Query<&mut Window>,
-//     rapier_context: Res<RapierContext>
-// ) {
-//     if mouse.just_pressed(MouseButton::Left) {
-//         // Left button was pressed
+fn shoot(
+    mut commands: Commands,
+    camera: Query<(&Camera, &GlobalTransform)>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    asset_server: Res<AssetServer>,
+    character_query: Query<(&Transform, Entity, &ActionState<PlayerActions>), With<LocalCharacter>>,
+    windows: Query<&mut Window>,
+    // rapier_context: Res<RapierContext>
+) {
+    let (transform, character, action) = character_query.single();
 
-//         // Does this get deleted? if not delete later or use the same audio track.
-//         commands.spawn(AudioBundle {
-//             source: asset_server.load("sounds/m1_garand_fire.mp3"),
-//             settings: PlaybackSettings::DESPAWN,
-//             ..default()
-//         });
+    if !action.just_pressed(&PlayerActions::Shoot) {
+        return;
+    }
 
-//         let (camera, camera_transform) = camera.single();
+    println!("SHOOT");
 
-//         let (transform, character) = q_character.single();
+    // Left button was pressed
 
-//         let char_pos = transform.translation.truncate();
+    // Does this get deleted? if not delete later or use the same audio track.
+    commands.spawn(AudioBundle {
+        source: asset_server.load("sounds/m1_garand_fire.mp3"),
+        settings: PlaybackSettings::DESPAWN,
+        ..default()
+    });
 
-//         let window = q_window.single();
+    // let (camera, camera_transform) = camera.single();
 
-//         if let None = window.cursor_position() { return; }
-//         // This works for now but in the future lets shoot in the direction the player is looking that way we can have slow turning weapons
-//         let cursor_position = window.cursor_position().unwrap();
+    // let (transform, character) = q_character.single();
 
-//         let cursor = camera.viewport_to_world(camera_transform, cursor_position).unwrap();
+    // let char_pos = transform.translation.truncate();
 
-//         let cursor_dir = (cursor.origin.truncate() - char_pos).normalize()*1000.0;
+    // let window = q_window.single();
 
-//         let ray_pos = char_pos;
-//         let ray_dir = cursor_dir;
-//         let max_toi = 4.0;
-//         let solid = true;
-//         let filter = QueryFilter::default().exclude_rigid_body(character);
+    // if let None = window.cursor_position() { return; }
+    // // This works for now but in the future lets shoot in the direction the player is looking that way we can have slow turning weapons
+    // let cursor_position = window.cursor_position().unwrap();
 
-//         if let Some((entity, toi)) = rapier_context.cast_ray(
-//             ray_pos, ray_dir, max_toi, solid, filter,
-//         ) {
-//             // The first collider hit has the entity `entity` and it hit after
-//             // the ray travelled a distance equal to `ray_dir * toi`.
-//             let hit_point = ray_pos + ray_dir * toi;
+    // let cursor = camera.viewport_to_world(camera_transform, cursor_position).unwrap();
 
-//             println!("Entity {:?} hit at point {}", entity, hit_point);
+    // let cursor_dir = (cursor.origin.truncate() - char_pos).normalize()*1000.0;
 
-//             // Kill guy you shot
-//             let mut entity_commanconfirmed: Query<(Entity, &PlayerId), Added<Predicted>>,ds = commands.entity(entity);
-//             entity_commands.insert(Dead);
+    // let ray_pos = char_pos;
+    // let ray_dir = cursor_dir;
+    // let max_toi = 4.0;
+    // let solid = true;
+    // let filter = QueryFilter::default().exclude_rigid_body(character);
 
-//             // commands.spawn((SpriteBundle {
-//             //     sprite: Sprite {
-//             //         custom_size: Some(Vec2::new(10.0, 10.0)),
-//             //         color: Color::RED,
-//             //         ..default()
-//             //     },
-//             //     transform: Transform::from_translation(hit_point.extend(0.0)),
-//             //     ..default()
-//             // },
-//             // Temp {
-//             //     time_alive: Duration::from_secs(3),
-//             //     time_started: Instant::now(),
-//             // }
-//             // ));
-//         }
-//     }
-// }
+    // if let Some((entity, toi)) = rapier_context.cast_ray(
+    //     ray_pos, ray_dir, max_toi, solid, filter,
+    // ) {
+    //     // The first collider hit has the entity `entity` and it hit after
+    //     // the ray travelled a distance equal to `ray_dir * toi`.
+    //     let hit_point = ray_pos + ray_dir * toi;
+
+    //     println!("Entity {:?} hit at point {}", entity, hit_point);
+
+    //     // Kill guy you shot
+    //     let mut entity_commanconfirmed: Query<(Entity, &PlayerId), Added<Predicted>>,ds = commands.entity(entity);
+    //     entity_commands.insert(Dead);
+
+    //     // commands.spawn((SpriteBundle {
+    //     //     sprite: Sprite {
+    //     //         custom_size: Some(Vec2::new(10.0, 10.0)),
+    //     //         color: Color::RED,
+    //     //         ..default()
+    //     //     },
+    //     //     transform: Transform::from_translation(hit_point.extend(0.0)),
+    //     //     ..default()
+    //     // },
+    //     // Temp {
+    //     //     time_alive: Duration::from_secs(3),
+    //     //     time_started: Instant::now(),
+    //     // }
+    //     // ));
+    // }
+}

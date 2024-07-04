@@ -10,17 +10,13 @@ pub enum PlayerActions {
     Left,
     Right,
     MoveCursor,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Hash, Reflect, Actionlike)]
-pub enum MovementStateActions {
     Run,
     SlowWalk,
     Crawl,
+    Shoot,
 }
 
 pub(super) fn register(app: &mut App) {
     // Register inputs
     app.add_plugins(LeafwingInputPlugin::<PlayerActions>::default());
-    app.add_plugins(LeafwingInputPlugin::<MovementStateActions>::default());
 }

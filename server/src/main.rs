@@ -40,11 +40,10 @@ fn main() {
         EguiPlugin,
         WorldInspectorPlugin::new(),
     ));
-    app.add_plugins((
-        network::NetworkPlugin,
-    ));
 
     common::register(&mut app);
+
+    network::register(&mut app);
 
     app.run();
 }
